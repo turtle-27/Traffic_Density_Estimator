@@ -24,7 +24,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 int main(int argc, char** argv)
 {
      // Read image from file 
-     Mat img = imread("greyEmpty.jpg");
+     Mat img = imread("greyTraffic.jpg");
     // cout << img.size() << endl;
      //if fail to read the image
      if ( img.empty() ) 
@@ -55,10 +55,22 @@ int main(int argc, char** argv)
     Mat im_out;
     // Warp source image to destination based on homography
     warpPerspective(img, im_out, h, img.size());
+    Mat cropped = Mat::zeros(500,200, CV_8UC3);
+    // Cropping
+    vector<Point2f> pts_dst2; 
+    pts_dst2.push_back(Point2f(0,0));
+    pts_dst2.push_back(Point2f(0,500));
+    pts_dst2.push_back(Point2f(200,500));
+    pts_dst2.push_back(Point2f(200,0));
+    Mat h1 = findHomography(::pts_src, pts_dst2);
+    warpPerspective(img, cropped, h1, cropped.size() );
 
     // Display images
-    namedWindow("Warped Source Image" ,2);
+    namedWindow("Warped Source Image", 2);
     imshow("Warped Source Image", im_out);
+    waitKey(0);
+    destroyWindow("Warped Source Image");
+    imshow("Cropped", cropped);
     waitKey(0);
 
     return 0;
