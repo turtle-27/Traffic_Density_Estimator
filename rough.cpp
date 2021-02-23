@@ -16,6 +16,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
     }
     if ( ::count == 4)
     {
+        destroyWindow("My Window");
         return;
     }
 }
@@ -23,8 +24,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 int main(int argc, char** argv)
 {
      // Read image from file 
-     Mat img = imread("empty.jpg");
-    cout << img.size() << endl;
+     Mat img = imread("greyEmpty.jpg");
+    // cout << img.size() << endl;
      //if fail to read the image
      if ( img.empty() ) 
      { 
@@ -36,14 +37,14 @@ int main(int argc, char** argv)
      namedWindow("My Window", 2);
      //set the callback function for any mouse event
      setMouseCallback("My Window", CallBackFunc, NULL);
-     imshow("My Window", img);
+     imshow("My Window", img);  
      waitKey(0);
      // Four corners of the book in destination image.
     vector<Point2f> pts_dst; 
-    pts_dst.push_back(Point2f(0,1079));
-    pts_dst.push_back(Point2f(1919,1079));
-    pts_dst.push_back(Point2f(1919,0));
-    pts_dst.push_back(Point2f(0,0));
+    pts_dst.push_back(Point2f(472,52));
+    pts_dst.push_back(Point2f(472,830));
+    pts_dst.push_back(Point2f(800,830));
+    pts_dst.push_back(Point2f(800,52));
     
     
 
@@ -56,12 +57,8 @@ int main(int argc, char** argv)
     warpPerspective(img, im_out, h, img.size());
 
     // Display images
-    namedWindow("Source Image", 2);
-    imshow("Source Image", img);
-    waitKey(0);
     namedWindow("Warped Source Image" ,2);
     imshow("Warped Source Image", im_out);
-
     waitKey(0);
 
     return 0;
