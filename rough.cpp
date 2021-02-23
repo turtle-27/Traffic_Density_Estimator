@@ -57,8 +57,9 @@ int main(int argc, char** argv)
 
     // Display images
     namedWindow("Source Image", 2);
-    namedWindow("Warped Source Image" ,2);
     imshow("Source Image", img);
+    waitKey(0);
+    namedWindow("Warped Source Image" ,2);
     imshow("Warped Source Image", im_out);
 
     waitKey(0);
