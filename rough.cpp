@@ -37,9 +37,7 @@ int main(int argc, char** argv)
      //set the callback function for any mouse event
      setMouseCallback("My Window", CallBackFunc, NULL);
      imshow("My Window", img);
-     if(::count != 4){
-         waitKey(0);
-     }
+     waitKey(0);
      // Four corners of the book in destination image.
     vector<Point2f> pts_dst; 
     pts_dst.push_back(Point2f(0,1079));
