@@ -15,4 +15,4 @@ Terminal commands to:
     - not using this format will display the format to be used on the terminal
 
 3. Delete output files
-    - to delete "output" file: make clean
+    - to delete output files: make clean

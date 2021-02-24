@@ -73,7 +73,7 @@ int main(int argc, char** argv)
     // Output image test
     Mat im_out;
     // Warp source image to destination based on homography
-    warpPerspective(img, im_out, h, {1024 ,720}); 
+    warpPerspective(img, im_out, h, {1366 ,748}); 
     Mat cropped = Mat::zeros(500,200, CV_8UC3);
     
     // Cropping
