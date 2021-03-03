@@ -2,6 +2,7 @@
 #include <iostream>
 
 int backSub(Mat inputFrame){
+    VideoCapture capture();
     Ptr<BackgroundSubtractor> backS = createBackgroundSubtractorMOG2();
     Mat outFrame;
     backS-> apply(inputFrame, outFrame);
