@@ -4,7 +4,5 @@ output: homography.cpp
 .PHONY: clean 
 clean:
 	rm output
-	rm cropped_transformed_traffic.jpg
-	rm transformed_traffic.jpg
 
 

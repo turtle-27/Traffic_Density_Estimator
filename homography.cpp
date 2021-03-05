@@ -120,6 +120,7 @@ int main(int argc, char** argv)
     imshow("Cropped Image", cropped);
     waitKey(0);
 
+    
     return 0;
 
 }
