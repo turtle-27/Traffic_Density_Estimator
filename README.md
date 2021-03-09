@@ -1,7 +1,7 @@
 This folder contains: 
-    - source code: homography.cpp 
+    - source code: subtask2.cpp 
     - Makefile 
-    - Two images: "empty.jpg" and "traffic.jpg"
+    - videofile "trafficvideo.mp4"
 
 Terminal commands to:
 1. To compile the source code 
@@ -9,9 +9,8 @@ Terminal commands to:
     - builds an output file named "output"
 
 2. Run output file 
-    - for "filename"    : ./output filename 
-    - for "empty.jpg"   : ./output empty.jpg
-    - for "traffic.jpg" : ./output traffic.jpg 
+    - for "videofilename"    : ./output videofilename 
+    - for "trafficvideo.mp4"   : ./output trafficvideo.mp4
     - not using this format will display the format to be used on the terminal
 
 3. Delete output files

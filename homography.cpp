@@ -119,6 +119,13 @@ int main(int argc, char** argv)
     resizeWindow("Cropped Image", 1024, 720);
     imshow("Cropped Image", cropped);
     waitKey(0);
+    
+//    for(int i=0; i < pts_src.size(); i++)
+//    {
+//        cout << pts_src.at(i) << ' ';
+//    }
+   
+
 
     
     return 0;
