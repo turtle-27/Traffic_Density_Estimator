@@ -89,9 +89,6 @@ int queueDensity(VideoCapture capture)
         pBackSub->apply(frame, fgMask, 0);
         pBackSub1->apply(frame, fgMask1, -1);
         
-        threshold( fgMask, fgMask, 127, 255, 0);
-        threshold( fgMask1, fgMask1, 127, 255, 0);
-
         queue_density   = countNonZero(fgMask)/total;
         dynamic_density = countNonZero(fgMask1)/total;
 
