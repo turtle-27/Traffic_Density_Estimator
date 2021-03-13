@@ -62,9 +62,9 @@ int density(VideoCapture capture)
     pBackSub = createBackgroundSubtractorMOG2();
     pBackSub1 = createBackgroundSubtractorMOG2();
 
-    // opens file names "Density.csv" and sets the header
-    ofstream Density("Density.csv");
-    Density <<"Frame Count, Queue Density, Dynamic Density" << endl;
+    // opens file names "Density.txt" and sets the header
+    ofstream Density("Density.txt");
+    Density <<"Time(sec), Queue Density, Dynamic Density" << endl;
 
 
     // initializations
@@ -78,8 +78,10 @@ int density(VideoCapture capture)
     {
         // gets the next frame
         capture >> frame;
+        capture >> frame;
+        capture >> frame;
         // frame_count incremented
-        frame_count += 1;
+        frame_count += 3;
         // if next frame is empty break
         if (frame.empty())
         {
@@ -101,8 +103,8 @@ int density(VideoCapture capture)
         dynamic_density = countNonZero(fgMask1)/total;
 
         // density values written in the file "Density.csv" and output shown on terminal as well
-        Density << to_string(frame_count) + ", " + to_string(queue_density) + ", " + to_string(dynamic_density) << endl;
-        cout << to_string(frame_count) + ", " + to_string(queue_density) + ", " + to_string(dynamic_density) << endl;
+        Density << to_string(frame_count/15.0) + ", " + to_string(queue_density) + ", " + to_string(dynamic_density) << endl;
+        cout << to_string(frame_count/15.0) + ", " + to_string(queue_density) + ", " + to_string(dynamic_density) << endl;
 
         //get the input from the keyboard
         int keyboard = waitKey(30);
@@ -112,7 +114,7 @@ int density(VideoCapture capture)
         }   
     }
     
-    // close the file "Density.csv"
+    // close the file "Density.txt"
     Density.close();
 
     return 0;

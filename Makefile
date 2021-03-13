@@ -4,6 +4,6 @@ output: subtask2.cpp
 .PHONY: clean 
 clean:
 	rm output
-	rm Density.csv
+	rm Density.txt
 
 
