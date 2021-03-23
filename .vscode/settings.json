@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.yacc": "yacc",
         "deque": "cpp",
         "string": "cpp",
         "vector": "cpp",
@@ -52,6 +53,8 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "thread": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "bitset": "cpp",
+        "cinttypes": "cpp"
     }
 }
