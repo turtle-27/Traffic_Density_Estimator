@@ -1,19 +1,16 @@
 // Includes
 #include <opencv2/opencv.hpp>
 #include <iostream>
-#include <vector>
-#include <cmath>
-#include <boost/tuple/tuple.hpp>
 #include <string>
 #include <fstream>
-#include <time.h>
-
 
 using namespace cv;
 using namespace std;
 
 
 // GLOBAL VARIABLES
+// Variable to keep track of mouse clicks 
+int count = 0;
 
 // Function to calculate homography
 Mat homography(Mat img)
@@ -57,7 +54,7 @@ Mat homography(Mat img)
 }
 
 // Function to calulate Density
-int density(string filename, int x)
+int density(VideoCapture capture)
 {
     // Objects defined for background subtraction model
     Ptr<BackgroundSubtractor> pBackSub;
@@ -66,47 +63,25 @@ int density(string filename, int x)
     pBackSub1 = createBackgroundSubtractorMOG2();
 
     // opens file names "Density.txt" and sets the header
-    ofstream utility;
-    utility.open("Baseline.txt");
+    ofstream Density("Density.txt");
+    Density <<"Time(sec), Queue Density, Dynamic Density" << endl;
 
-    // ifstream infile; 
-    // infile.open("Baseline.txt");
 
-    
-    // open the videofile passed in command line argument
-    VideoCapture capture(filename);
-    if (!capture.isOpened())
-    {
-        //error in opening the video input
-        cout << "Unable to open" << endl;
-        return -1;
-    }
-    
-    
     // initializations
-    double runtime = 0.0;
-    clock_t start, end;
-
-    
     Mat frame, fgMask, fgMask1;
     double queue_density = 0.0;
     double dynamic_density = 0.0;
     double total; 
-    double difference = 0.0;
-    string baseline_difference; 
-    double error = 0.0;
     int frame_count = 0; 
-    
-    capture >> frame;
-    // infile >> baseline_difference;
-
     // computation of density for each frame
     while (true) 
     {
-        
-        start = clock();
+        // gets the next frame
+        capture >> frame;
+        capture >> frame;
+        capture >> frame;
         // frame_count incremented
-        frame_count += x;
+        frame_count += 3;
         // if next frame is empty break
         if (frame.empty())
         {
@@ -126,27 +101,10 @@ int density(string filename, int x)
         // density values 
         queue_density   = countNonZero(fgMask)/total;
         dynamic_density = countNonZero(fgMask1)/total;
- 
-        
-        // gets the next x frames
-        for (int i = 0; i < x; i++)
-        {
-            capture >> frame;
-        }
-        
-        end = clock();
 
-        runtime += (end - start); 
-        
-        // difference = queue_density - dynamic_density;
-        // for (int i = 0; i < x; i++)
-        // {
-                // infile >> baseline_difference;
-                // error += abs(difference - stod(baseline_difference));
-        // }
-        
-        utility << queue_density << endl;
-
+        // density values written in the file "Density.csv" and output shown on terminal as well
+        Density << to_string(frame_count/15.0) + ", " + to_string(queue_density) + ", " + to_string(dynamic_density) << endl;
+        cout << to_string(frame_count/15.0) + ", " + to_string(queue_density) + ", " + to_string(dynamic_density) << endl;
 
         //get the input from the keyboard
         int keyboard = waitKey(30);
@@ -156,41 +114,33 @@ int density(string filename, int x)
         }   
     }
     
-    // runtime = runtime / CLOCKS_PER_SEC;
-    // error = error / 5736.0; 
-
-    // utility << to_string(runtime) + "\t" + to_string(error) << endl;
-    
-
     // close the file "Density.txt"
-    utility.close();
-    // infile.close();
+    Density.close();
+
     return 0;
 }
 
 int main(int argc, char* argv[])
 {
-    
     // if command line arguments is not passed 
     if (argc != 2)
     {
         cout << "Format: ./output videofilename" << endl; 
         return -1;
     }
-
-    string filename = argv[1];
-
-    // ofstream utility;
-    // utility.open("utility_method1.dat", std::ofstream::out | std::ofstream::trunc);
-    // utility.close();
-
-
-    // for (int i = 2; i <= 50; i++)
-    // {
-    //     density(filename, i);
-    // }
     
-    density(filename, 1);
-    
-    return 0;
+    // open the videofile passed in command line argument
+    VideoCapture capture(argv[1]);
+    if (!capture.isOpened())
+    {
+        //error in opening the video input
+        cout << "Unable to open" << endl;
+        return -1;
+    }
+
+    // Variable to keep track of mouse clicks 
+    int count = 0;
+
+    // calculates and outputs the density on terminal while also writing a file "Density.csv"
+    density(capture);
 }
