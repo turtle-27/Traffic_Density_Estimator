@@ -9,6 +9,6 @@ int main()
     // object of class gnuplot is created
     p("set term postscript eps"); 
     p("set output \"out.eps\" ");
-    p("plot \'./utility_method1.dat\' u 1:2 w l ");
+    p("plot \'./utility_method2.dat\' u 10:1 w l ");
     return 0;
 }

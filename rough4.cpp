@@ -7,16 +7,17 @@
 #include <string>
 #include <fstream>
 #include <time.h>
+#include <chrono>
 #include <pthread.h>
+
 
 using namespace cv;
 using namespace std;
 
-
-struct method4_struct
+struct  method4_struct
 {
     Mat frame;
-    double queue_density;
+    double qd;
 };
 
 // GLOBAL VARIABLES
@@ -71,22 +72,23 @@ void* temp4(void* arg)
     struct method4_struct *arg_struct = (struct method4_struct*) arg;
     
     double total; 
-    Mat frame = arg_struct->frame;
+    Mat frame1 = arg_struct->frame;
     Mat fgMask;
     double temp_queue_density = 0.0;
 
-    frame = homography(frame, 200, 500);
-    
+    frame1 = homography(frame1, 200, 500);
+
     // total no. of pixels in the frame
-    total = double(frame.total());
+    total = double(frame1.total());
 
     //update the background model
-    pBackSub_method4->apply(frame, fgMask, 0);
+    pBackSub_method4->apply(frame1, fgMask, 0);
     
     // density values 
-    temp_queue_density  = countNonZero(fgMask)/total;
+    temp_queue_density = countNonZero(fgMask)/total;
 
-    arg_struct->queue_density = temp_queue_density; 
+    arg_struct->qd = temp_queue_density;
+
     pthread_exit(0);
 }
 
@@ -112,54 +114,73 @@ double method4(string filename, int method, int x)
     string baseline_difference; 
     double error = 0.0;
     double utility = 0.0; 
-    bool check = false;
-    
-    capture >> frame;
 
-    pBackSub_method4->apply(frame, fgMask, 0);
+    capture >> frame;
 
     struct method4_struct args[x];
    
-    while(true)
+    pthread_t threadId[x];
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    
+    if (method == 4)
     {
-        // if next frame is empty break
-        if (frame.empty())
-        {
-            break;
-        }  
-        
-        pthread_t threadId[x];
-        for (int i = 0; i < x; i++)
-        {
+        while(true)
+        {    
             if (frame.empty())
             {
                 break;
-                check = true;
             }
-            args[i].frame = frame;
-            pthread_create(&threadId[i], 0, temp4, &args[i]);
-            capture >> frame;
-        }
 
-        if (check == true)
-        {
-            break;
-        }
+            for (int i = 0; i < x; i++)
+            {
+                if (frame.empty())
+                {
+                    x = i;
+                    break;
+                }
+                args[i].frame = frame;
+                pthread_create(&threadId[i], &attr, temp4, &args[i]);
+                capture >> frame;
+            }
 
-        for (int i = 0; i < x; i++)
-        {
-            pthread_join(threadId[i], NULL);
-            infile >> baseline_difference;
-            // cout << "Qd: " << args[i].queue_density << " Bd: " << baseline_difference << endl;
-            // error += abs(args[i].queue_density - stod(baseline_difference));
+            for (int i = 0; i < x; i++)
+            {
+                pthread_join(threadId[i], NULL);
+                infile >> baseline_difference;
+                error += abs(args[i].qd - stod(baseline_difference));
+            }
         }
-
-        //get the input from the keyboard
-        int keyboard = waitKey(30);
-        if (keyboard == 'q' || keyboard == 27)
-        {
-            break;
-        } 
+    }
+    else
+    {
+        while(true)
+        {    
+            if (frame.empty())
+            {
+                break;
+            }
+            
+            for (int i = 0; i < x; i++)
+            {
+                if (frame.empty())
+                {
+                    x = i;
+                    break;
+                }
+                args[i].frame = frame;
+                pthread_create(&threadId[i], &attr, temp4, &args[i]);
+                capture >> frame;
+            }
+            
+            for (int i = 0; i < x; i++)
+            {
+                pthread_join(threadId[i], NULL);
+                infile >> baseline_difference;
+                error += abs(args[i].qd - stod(baseline_difference));
+            }
+        }
+    
     }
 
     error = error / 5736.0; 
@@ -177,10 +198,6 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
     Ptr<BackgroundSubtractor> pBackSub1;
     pBackSub = createBackgroundSubtractorMOG2();
     pBackSub1 = createBackgroundSubtractorMOG2();
-
-    // opens file names "Density.txt" and sets the header
-    // ofstream utility;
-    // utility.open("utility_method1.dat", std::ios_base::app);
 
     ifstream infile; 
     infile.open("Baseline.txt");
@@ -220,7 +237,7 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
             break;
         }  
         
-        start = clock();
+        
 
         if (method == 2)
         {
@@ -234,6 +251,7 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
         }
         
         
+        start = clock();
 
         // total no. of pixels in the frame
         total = double(frame.total());
@@ -245,6 +263,8 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
         // density values 
         queue_density  = countNonZero(fgMask)/total;
         // dynamic_density = countNonZero(fgMask1)/total;
+        
+        end = clock();
 
         if (method == 1)
         {
@@ -269,17 +289,7 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
             error += abs(queue_density - stod(baseline_difference));
         }
         
-        
-        end = clock();
-        
-        runtime += (end - start);
-
-        //get the input from the keyboard
-        int keyboard = waitKey(30);
-        if (keyboard == 'q' || keyboard == 27)
-        {
-            break;
-        }   
+        runtime += (end - start);   
     }
     
 
@@ -311,25 +321,24 @@ int main(int argc, char* argv[])
     ofstream utility;
     utility.open("utility_method" + to_string(method) + ".dat");
     
-
-    
-    clock_t start, end;
     double util = 0.0;
 
     if (method == 1)
     {   
-        for (int i = 2; i <= 20; i++)
+        cout << "loading..." << endl;
+        for (int i = 1; i <= 20; i++)
         {
-            start = clock();
+            auto begin = chrono::high_resolution_clock::now();
             util = density(filename, method, i, 1920, 1080);
-            end = clock();
+            auto finish = chrono::high_resolution_clock::now();
             if (util == -1.0)
             {
                 return -1;
             }
-            runtime = (end - start) / CLOCKS_PER_SEC;
-            utility << to_string(runtime) + "\t" + to_string(util) << endl;
+            auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
+            utility << elapsed.count()/1000.0 << "\t" + to_string(util) << endl;
         }
+        cout << "DONE" << endl;
     }
     else if (method == 2)
     {
@@ -337,21 +346,20 @@ int main(int argc, char* argv[])
         int ini_reso_x = 200;
         int ini_reso_y = 500;
         
-        for (int i = 2; i <= 10; i++)
+        for (int i = 0; i < 10; i++)
         {
-            ini_reso_x = ini_reso_x/2;    
-            ini_reso_y = ini_reso_y/2;
-            
-            // start = clock();
+            auto begin = chrono::high_resolution_clock::now();
             util = density(filename, method, i, ini_reso_x, ini_reso_y);
-            // end = clock();
+            auto finish = chrono::high_resolution_clock::now();
             if (util == -1.0)
             {
                 return -1;
             }
-            // runtime = (end - start) / CLOCKS_PER_SEC;
-            runtime = runtime / CLOCKS_PER_SEC;
-            utility << to_string(runtime) + "\t" + to_string(util) << endl;
+            auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
+            utility << elapsed.count()/1000.0 <<  "\t" + to_string(util) << endl;
+
+            ini_reso_x = ini_reso_x/1.5;    
+            ini_reso_y = ini_reso_y/1.5;
         }
         cout << "DONE" << endl;
     }
@@ -361,18 +369,20 @@ int main(int argc, char* argv[])
     }
     else if (method == 4)
     {
-        for (int i = 1; i <= 5; i++)
+        cout << "loading..." << endl;   
+        for (int i = 1; i <= 20; i++)
         {
-            start = clock();
+            auto begin = chrono::high_resolution_clock::now();
             util = method4(filename, method, i);
-            end = clock();
+            auto finish = chrono::high_resolution_clock::now();
             if (util == -1.0)
             {
                 return -1;
             }
-            runtime = (end - start) / CLOCKS_PER_SEC;
-            utility << to_string(runtime) + "\t" + to_string(util) << endl;
+            auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
+            utility << elapsed.count()/1000.0 << "\t" + to_string(util) << endl;
         }
+        cout << "DONE" << endl;
     }
     
     utility.close();
