@@ -18,22 +18,23 @@ struct  method4_struct
 {
     Mat frame;
     double qd;
+    int method;
+    Ptr<BackgroundSubtractor> pBackSub_eachThread;
 };
 
 // GLOBAL VARIABLES
-double runtime = 0.0;
-Ptr<BackgroundSubtractor> pBackSub_method4;
+
 
 // Function to calculate homography
 Mat homography(Mat img, int X, int Y)
 {
     // Array to store points selected by the user thorugh mouse clicks
-    vector<Point2f> pts_src;
+    vector<Point2f> pts_frame;
     // Four points of the image of the destination image used to wrap perspective
-    pts_src.push_back(Point2f(961,213));
-    pts_src.push_back(Point2f(596,1066));
-    pts_src.push_back(Point2f(1560,1055));
-    pts_src.push_back(Point2f(1284,217));
+    pts_frame.push_back(Point2f(961,213));
+    pts_frame.push_back(Point2f(596,1066));
+    pts_frame.push_back(Point2f(1560,1055));
+    pts_frame.push_back(Point2f(1284,217));
     
     // Array to store points of the destination image
     vector<Point2f> pts_dst; 
@@ -44,7 +45,7 @@ Mat homography(Mat img, int X, int Y)
     pts_dst.push_back(Point2f(800,52));
     
     // Calculate Homography
-    Mat h = findHomography(pts_src, pts_dst);
+    Mat h = findHomography(pts_frame, pts_dst);
 
     // Output image test
     Mat im_out;
@@ -59,7 +60,7 @@ Mat homography(Mat img, int X, int Y)
     pts_dst2.push_back(Point2f(0,500));
     pts_dst2.push_back(Point2f(200,500));
     pts_dst2.push_back(Point2f(200,0));
-    Mat h1 = findHomography(pts_src, pts_dst2);
+    Mat h1 = findHomography(pts_frame, pts_dst2);
     warpPerspective(img, cropped, h1, cropped.size());
     
     resize(cropped, cropped, Size(X, Y));
@@ -70,22 +71,23 @@ Mat homography(Mat img, int X, int Y)
 void* temp4(void* arg)
 {
     struct method4_struct *arg_struct = (struct method4_struct*) arg;
-    
-    double total; 
+     
     Mat frame1 = arg_struct->frame;
     Mat fgMask;
+    // Ptr<BackgroundSubtractor> pBackSub = arg_struct->pBackSub_eachThread;
     double temp_queue_density = 0.0;
 
-    frame1 = homography(frame1, 200, 500);
-
-    // total no. of pixels in the frame
-    total = double(frame1.total());
-
-    //update the background model
-    pBackSub_method4->apply(frame1, fgMask, 0);
+    if (arg_struct->method == 4)
+    {
+        frame1 = homography(frame1, 200, 500);
+    }
     
+    //update the background model
+    arg_struct->pBackSub_eachThread->apply(frame1, fgMask, 0);
+    // imshow("f", fgMask);
+    // waitKey(0);
     // density values 
-    temp_queue_density = countNonZero(fgMask)/total;
+    temp_queue_density = countNonZero(fgMask);
 
     arg_struct->qd = temp_queue_density;
 
@@ -94,8 +96,6 @@ void* temp4(void* arg)
 
 double method4(string filename, int method, int x)
 {
-    
-    pBackSub_method4 = createBackgroundSubtractorMOG2();
 
     ifstream infile; 
     infile.open("Baseline.txt");
@@ -113,9 +113,12 @@ double method4(string filename, int method, int x)
     Mat frame, fgMask; 
     string baseline_difference; 
     double error = 0.0;
+    double queue_density = 0.0;
     double utility = 0.0; 
+    double total = 0.0;
 
     capture >> frame;
+    total = double(frame.total());
 
     struct method4_struct args[x];
    
@@ -123,8 +126,15 @@ double method4(string filename, int method, int x)
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     
+
+    bool first_time1 = true;
+    bool first_array[x];
+     
     if (method == 4)
     {
+        Ptr<BackgroundSubtractor> pBackSub;
+        pBackSub = createBackgroundSubtractorMOG2();
+
         while(true)
         {    
             if (frame.empty())
@@ -132,57 +142,136 @@ double method4(string filename, int method, int x)
                 break;
             }
 
-            for (int i = 0; i < x; i++)
+
+            if (x == 1)
             {
-                if (frame.empty())
-                {
-                    x = i;
-                    break;
-                }
-                args[i].frame = frame;
-                pthread_create(&threadId[i], &attr, temp4, &args[i]);
+                // imshow("frame", frame);
+                // waitKey(0);
+                args[0].frame = frame;
+                args[0].method = method;
+                args[0].pBackSub_eachThread = pBackSub;
+                pthread_create(&threadId[0], &attr, temp4, &args[0]);
+                pthread_join(threadId[0], NULL);
                 capture >> frame;
             }
-
-            for (int i = 0; i < x; i++)
+            else
             {
-                pthread_join(threadId[i], NULL);
-                infile >> baseline_difference;
-                error += abs(args[i].qd - stod(baseline_difference));
+                for (int i = 0; i < x; i++)
+                {
+                    if (frame.empty())
+                    {
+                        x = i;
+                        break;
+                    }
+                    args[i].frame = frame;
+                    args[i].method = method;
+                    args[i].pBackSub_eachThread = pBackSub;
+                    pthread_create(&threadId[i], &attr, temp4, &args[i]);
+                    capture >> frame;
+                }
+
+                for (int i = 0; i < x; i++)
+                {
+                    pthread_join(threadId[i], NULL);
+                    infile >> baseline_difference;
+                    error += abs((args[i].qd/total) - stod(baseline_difference));
+                }
             }
+            
         }
     }
     else
     {
+        
+        Ptr<BackgroundSubtractor> pBackSub[x];
+        
         while(true)
         {    
             if (frame.empty())
             {
                 break;
             }
-            
-            for (int i = 0; i < x; i++)
-            {
-                if (frame.empty())
-                {
-                    x = i;
-                    break;
-                }
-                args[i].frame = frame;
-                pthread_create(&threadId[i], &attr, temp4, &args[i]);
-                capture >> frame;
-            }
-            
-            for (int i = 0; i < x; i++)
-            {
-                pthread_join(threadId[i], NULL);
-                infile >> baseline_difference;
-                error += abs(args[i].qd - stod(baseline_difference));
-            }
-        }
-    
-    }
 
+            frame = homography(frame, 200, 500);          
+        
+            int width = frame.cols;
+            int height = frame.rows;
+            int GRID_SIZE = height / x ;
+            int count = 0;
+
+            if (x == 1)
+            {
+                // imshow("frame", frame);
+                // waitKey(0);
+                if (first_time1)
+                {
+                    pBackSub[0] = createBackgroundSubtractorMOG2();
+                    first_time1 = false;
+                }
+                args[count].frame = frame;
+                args[count].method = method;
+                args[count].pBackSub_eachThread = pBackSub[0];
+                pthread_create(&threadId[count], &attr, temp4, &args[count]);
+                pthread_join(threadId[count], NULL);
+            }
+            else
+            {
+                for (int y = 0; y < height - GRID_SIZE; y += GRID_SIZE-1) 
+                {
+                     
+                    // int k = width*y + width;
+                    
+                    if (!first_array[count])
+                    {
+                        pBackSub[count] = createBackgroundSubtractorMOG2();
+                        first_array[count] = true;
+                    }
+                    
+                    if (y <= height - 2*GRID_SIZE)
+                    {
+                        
+                        Rect grid_rect(0, y, width-1, GRID_SIZE-2);
+                        // rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
+                        // imshow(to_string(count), frame(grid_rect));
+                        // waitKey(0);
+                        args[count].frame = frame(grid_rect);
+                        args[count].method = method;
+                    }
+                    else
+                    {
+                        
+                        Rect grid_rect(0, y, width-1, height - 1 - y);   
+                        // rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
+                        // imshow(to_string(count), frame(grid_rect));
+                        // waitKey(0);
+                        args[count].frame = frame(grid_rect);
+                        args[count].method = method;
+                    }
+
+                    args[count].pBackSub_eachThread = pBackSub[count]; 
+                    pthread_create(&threadId[count], &attr, temp4, &args[count]);
+                    count++; 
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    pthread_join(threadId[i], NULL);
+                    infile >> baseline_difference;
+                    
+                    for (int j = 0; j < count; j++)
+                    {
+                        queue_density += args[j].qd;  
+                    }
+
+                    error += abs((queue_density/total) - stod(baseline_difference));
+                }
+            }
+            
+            capture >> frame;
+        }
+    }
+            
+        
     error = error / 5736.0; 
     // utility = 1 / error;
 
@@ -201,7 +290,7 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
 
     ifstream infile; 
     infile.open("Baseline.txt");
-
+    
     
     // open the videofile passed in command line argument
     VideoCapture capture(filename);
@@ -219,11 +308,7 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
     double total; 
     string baseline_difference; 
     double error = 0.0;
-    double utility = 0.0;
-    int frame_count = 0; 
-    
-    clock_t start, end;
-    runtime = 0.0;
+    double utility = 0.0; 
 
     capture >> frame;
 
@@ -251,7 +336,7 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
         }
         
         
-        start = clock();
+        
 
         // total no. of pixels in the frame
         total = double(frame.total());
@@ -261,10 +346,10 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
         // pBackSub1->apply(frame, fgMask1, -1);
 
         // density values 
-        queue_density  = countNonZero(fgMask)/total;
+        queue_density  = countNonZero(fgMask)/total; 
         // dynamic_density = countNonZero(fgMask1)/total;
         
-        end = clock();
+        
 
         if (method == 1)
         {
@@ -288,8 +373,7 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
             infile >> baseline_difference;
             error += abs(queue_density - stod(baseline_difference));
         }
-        
-        runtime += (end - start);   
+           
     }
     
 
@@ -365,7 +449,20 @@ int main(int argc, char* argv[])
     }
     else if (method == 3)
     {
-        return -1;
+        cout << "loading..." << endl;   
+        for (int i = 1; i <= 20; i++)
+        {
+            auto begin = chrono::high_resolution_clock::now();
+            util = method4(filename, method, i);
+            auto finish = chrono::high_resolution_clock::now();
+            if (util == -1.0)
+            {
+                return -1;
+            }
+            auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
+            utility << elapsed.count()/1000.0 << "\t" + to_string(util) << endl;
+        }
+        cout << "DONE" << endl;
     }
     else if (method == 4)
     {
