@@ -186,7 +186,8 @@ double method4(string filename, int method, int x)
         Ptr<BackgroundSubtractor> pBackSub[x];
         
         while(true)
-        {    
+        {  
+            queue_density = 0.0;  
             if (frame.empty())
             {
                 break;
