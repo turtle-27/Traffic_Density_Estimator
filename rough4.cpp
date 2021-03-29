@@ -204,6 +204,7 @@ double method4(string filename, int method, int x)
             {
                 // imshow("frame", frame);
                 // waitKey(0);
+                infile >> baseline_difference;
                 if (first_time1)
                 {
                     pBackSub[0] = createBackgroundSubtractorMOG2();
@@ -214,6 +215,9 @@ double method4(string filename, int method, int x)
                 args[count].pBackSub_eachThread = pBackSub[0];
                 pthread_create(&threadId[count], &attr, temp4, &args[count]);
                 pthread_join(threadId[count], NULL);
+                queue_density += args[count].qd;
+                error += abs((queue_density/total) - stod(baseline_difference));
+
             }
             else
             {
@@ -253,19 +257,13 @@ double method4(string filename, int method, int x)
                     pthread_create(&threadId[count], &attr, temp4, &args[count]);
                     count++; 
                 }
-
+                infile >> baseline_difference;
                 for (int i = 0; i < count; i++)
                 {
                     pthread_join(threadId[i], NULL);
-                    infile >> baseline_difference;
-                    
-                    for (int j = 0; j < count; j++)
-                    {
-                        queue_density += args[j].qd;  
-                    }
-
-                    error += abs((queue_density/total) - stod(baseline_difference));
+                    queue_density += args[i].qd;  
                 }
+                error += abs((queue_density/total) - stod(baseline_difference));
             }
             
             capture >> frame;
