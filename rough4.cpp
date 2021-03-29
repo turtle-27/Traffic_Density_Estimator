@@ -84,8 +84,9 @@ void* temp4(void* arg)
     
     //update the background model
     arg_struct->pBackSub_eachThread->apply(frame1, fgMask, 0);
-    // imshow("f", fgMask);
-    // waitKey(0);
+    imshow("f", fgMask);
+    waitKey(0);
+
     // density values 
     temp_queue_density = countNonZero(fgMask);
 
@@ -115,10 +116,9 @@ double method4(string filename, int method, int x)
     double error = 0.0;
     double queue_density = 0.0;
     double utility = 0.0; 
-    double total = 0.0;
-
+    double total = double(200*500);
+    
     capture >> frame;
-    total = double(frame.total());
 
     struct method4_struct args[x];
    
@@ -180,7 +180,7 @@ double method4(string filename, int method, int x)
             
         }
     }
-    else
+    else if (method == 3)
     {
         
         Ptr<BackgroundSubtractor> pBackSub[x];
@@ -188,6 +188,7 @@ double method4(string filename, int method, int x)
         while(true)
         {  
             queue_density = 0.0;  
+
             if (frame.empty())
             {
                 break;
@@ -235,20 +236,20 @@ double method4(string filename, int method, int x)
                     if (y <= height - 2*GRID_SIZE)
                     {
                         
-                        Rect grid_rect(0, y, width-1, GRID_SIZE-2);
-                        // rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
-                        // imshow(to_string(count), frame(grid_rect));
-                        // waitKey(0);
+                        Rect grid_rect(0, y, width, GRID_SIZE-1);
+                        rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
+                        imshow(to_string(count), frame(grid_rect));
+                        waitKey(0);
                         args[count].frame = frame(grid_rect);
                         args[count].method = method;
                     }
                     else
                     {
                         
-                        Rect grid_rect(0, y, width-1, height - 1 - y);   
-                        // rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
-                        // imshow(to_string(count), frame(grid_rect));
-                        // waitKey(0);
+                        Rect grid_rect(0, y, width, height - y);   
+                        rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
+                        imshow(to_string(count), frame(grid_rect));
+                        waitKey(0);
                         args[count].frame = frame(grid_rect);
                         args[count].method = method;
                     }
@@ -264,6 +265,7 @@ double method4(string filename, int method, int x)
                     queue_density += args[i].qd;  
                 }
                 error += abs((queue_density/total) - stod(baseline_difference));
+                // cout << "QD: " << queue_density/total << " BD: " << baseline_difference << endl;
             }
             
             capture >> frame;
@@ -449,7 +451,7 @@ int main(int argc, char* argv[])
     else if (method == 3)
     {
         cout << "loading..." << endl;   
-        for (int i = 1; i <= 20; i++)
+        for (int i = 18; i <= 20; i++)
         {
             auto begin = chrono::high_resolution_clock::now();
             util = method4(filename, method, i);
