@@ -207,7 +207,6 @@ double method_3_4(string filename, int method, int x)
                     
                     // calculate error
                     infile >> baseline;
-                    cout << "QD: " << args[i].qd/total << " BD: " << baseline << endl;
                     error += abs((args[i].qd/total) - stod(baseline));
                 }
             }
@@ -298,10 +297,6 @@ double method_3_4(string filename, int method, int x)
                         // split of width (width - 0) and height (height - y)
                         Rect grid_rect(0, y, width, height - y);
                         args[count].frame = frame(grid_rect);   
-                        
-                        // rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
-                        // imshow(to_string(count), frame(grid_rect));
-                        // waitKey(0);
                     }
 
                     // args fields assigned to be passed to thread_function
@@ -504,6 +499,13 @@ int main(int argc, char* argv[])
         int ini_reso_x = 200;
         int ini_reso_y = 500;
         
+        for (int i = 0; i < 7; i++)
+        {
+            cout << ini_reso_x << " " << ini_reso_y << endl;
+            ini_reso_x = ini_reso_x/2;    
+            ini_reso_y = ini_reso_y/2;
+            
+        }
         // running method for different values of parameter
         for (int i = 0; i < 7; i++)
         {
@@ -549,7 +551,7 @@ int main(int argc, char* argv[])
         cout << "Loading..." << endl;   
         
         // running method for different values of parameter
-        for (int i = 2; i <= 10; i++)
+        for (int i = 1; i <= 10; i++)
         {
             auto begin = chrono::high_resolution_clock::now();
             util = method_3_4(filename, method, i);
