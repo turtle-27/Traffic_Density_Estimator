@@ -3,9 +3,9 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <boost/tuple/tuple.hpp>
 #include <string>
 #include <fstream>
+#include <ctime>
 #include <time.h>
 #include <chrono>
 #include <pthread.h>
@@ -14,7 +14,9 @@
 using namespace cv;
 using namespace std;
 
-struct  method4_struct
+
+// Structure defined for use in method 3 and 4
+struct  helper_struct
 {
     Mat frame;
     double qd;
@@ -22,14 +24,13 @@ struct  method4_struct
     Ptr<BackgroundSubtractor> pBackSub_eachThread;
 };
 
-// GLOBAL VARIABLES
 
-
-// Function to calculate homography
+// Function to calculate homography take in img and returns homographed image of X*Y resolution
 Mat homography(Mat img, int X, int Y)
 {
     // Array to store points selected by the user thorugh mouse clicks
     vector<Point2f> pts_frame;
+    
     // Four points of the image of the destination image used to wrap perspective
     pts_frame.push_back(Point2f(961,213));
     pts_frame.push_back(Point2f(596,1066));
@@ -38,6 +39,7 @@ Mat homography(Mat img, int X, int Y)
     
     // Array to store points of the destination image
     vector<Point2f> pts_dst; 
+    
     // Four points of the image of the destination image used to wrap perspective
     pts_dst.push_back(Point2f(472,52));
     pts_dst.push_back(Point2f(472,830));
@@ -47,8 +49,9 @@ Mat homography(Mat img, int X, int Y)
     // Calculate Homography
     Mat h = findHomography(pts_frame, pts_dst);
 
-    // Output image test
+    // Output image
     Mat im_out;
+    
     // Warp source image to destination based on homography
     warpPerspective(img, im_out, h, {1366 ,748}); 
     Mat cropped = Mat::zeros(500, 200, CV_8UC3);
@@ -63,41 +66,47 @@ Mat homography(Mat img, int X, int Y)
     Mat h1 = findHomography(pts_frame, pts_dst2);
     warpPerspective(img, cropped, h1, cropped.size());
     
+    // Resizing 
     resize(cropped, cropped, Size(X, Y));
 
     return cropped;
 }
 
-void* temp4(void* arg)
-{
-    struct method4_struct *arg_struct = (struct method4_struct*) arg;
+// Function to be run after creating each thread
+void* thread_function(void* arg)
+{  
+    // arg_struct has 4 fields => frame, qd, method, pBackSub_eachThread
+    struct helper_struct *arg_struct = (struct helper_struct*) arg;
      
+    // initializations
     Mat frame1 = arg_struct->frame;
     Mat fgMask;
-    // Ptr<BackgroundSubtractor> pBackSub = arg_struct->pBackSub_eachThread;
     double temp_queue_density = 0.0;
 
+    // homography needs to be calculated for method 3 and not for method 4
     if (arg_struct->method == 4)
     {
+        // Angle correction and cropping
         frame1 = homography(frame1, 200, 500);
     }
     
     //update the background model
     arg_struct->pBackSub_eachThread->apply(frame1, fgMask, 0);
-    imshow("f", fgMask);
-    waitKey(0);
 
     // density values 
     temp_queue_density = countNonZero(fgMask);
 
+    // queue density value written in qd.
     arg_struct->qd = temp_queue_density;
 
     pthread_exit(0);
 }
 
-double method4(string filename, int method, int x)
+// Function for calculating queue density according to method 4 and method 3
+double method_3_4(string filename, int method, int x)
 {
 
+    // opens "Baseline.txt" having queue density values of baseline
     ifstream infile; 
     infile.open("Baseline.txt");
 
@@ -112,183 +121,235 @@ double method4(string filename, int method, int x)
 
     // initializations
     Mat frame, fgMask; 
-    string baseline_difference; 
+    string baseline; 
     double error = 0.0;
     double queue_density = 0.0;
-    double utility = 0.0; 
-    double total = double(200*500);
-    
+     
+    double total = double(200*500); // No. of pixels in the image on which bgSub is applied
+
+    // First frame captured
     capture >> frame;
 
-    struct method4_struct args[x];
+    // helper_struct array defined
+    struct helper_struct args[x];
    
+    // thread array created and attributes initialized
     pthread_t threadId[x];
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     
-
-    bool first_time1 = true;
+    // represents first access. Used in method 3
     bool first_array[x];
      
+
+    // method 4
     if (method == 4)
     {
+        // bgSub object crated and initialised
         Ptr<BackgroundSubtractor> pBackSub;
         pBackSub = createBackgroundSubtractorMOG2();
-
+    
+        // computation of queue density for each frame
         while(true)
         {    
+            // break if next frame is empty
             if (frame.empty())
             {
                 break;
             }
-
-
+            
+            // for single thread
             if (x == 1)
             {
-                // imshow("frame", frame);
-                // waitKey(0);
+                // args fields assigned to be passed to thread_function
                 args[0].frame = frame;
                 args[0].method = method;
                 args[0].pBackSub_eachThread = pBackSub;
-                pthread_create(&threadId[0], &attr, temp4, &args[0]);
+                
+                // Thread created
+                pthread_create(&threadId[0], &attr, thread_function, &args[0]);
+                
+                // wait for thread to finish
                 pthread_join(threadId[0], NULL);
+                
+                // next frame
                 capture >> frame;
             }
             else
-            {
+            {   
+                
+                // creates x threads, x > 1 
                 for (int i = 0; i < x; i++)
                 {
+                    // break if next frame is empty 
                     if (frame.empty())
                     {
                         x = i;
                         break;
                     }
+                    
+                    // args fields assigned to be passed to thread_function
                     args[i].frame = frame;
                     args[i].method = method;
                     args[i].pBackSub_eachThread = pBackSub;
-                    pthread_create(&threadId[i], &attr, temp4, &args[i]);
+
+                    // Thread created
+                    pthread_create(&threadId[i], &attr, thread_function, &args[i]);
+                    
+                    // next frame
                     capture >> frame;
                 }
 
+                // wait for all the threads to finish
                 for (int i = 0; i < x; i++)
                 {
                     pthread_join(threadId[i], NULL);
-                    infile >> baseline_difference;
-                    error += abs((args[i].qd/total) - stod(baseline_difference));
+                    
+                    // calculate error
+                    infile >> baseline;
+                    cout << "QD: " << args[i].qd/total << " BD: " << baseline << endl;
+                    error += abs((args[i].qd/total) - stod(baseline));
                 }
             }
             
         }
     }
+    // method 3 
     else if (method == 3)
     {
         
+        // bgSub array created of size x for x threads 
         Ptr<BackgroundSubtractor> pBackSub[x];
         
+        // computation of queue density for each frame
         while(true)
         {  
             queue_density = 0.0;  
 
+            // break if next frame is empty 
             if (frame.empty())
             {
                 break;
             }
 
+            // Angle correction and cropping
             frame = homography(frame, 200, 500);          
-        
+
+            // initializing dimensions and split size 
             int width = frame.cols;
             int height = frame.rows;
-            int GRID_SIZE = height / x ;
+            int split_size = height / x ;
+            
+            // to keep track of no. of threads created
             int count = 0;
 
+            // for single thread 
             if (x == 1)
             {
-                // imshow("frame", frame);
-                // waitKey(0);
-                infile >> baseline_difference;
-                if (first_time1)
+                // initialises bgSub object
+                if (first_array[0])
                 {
                     pBackSub[0] = createBackgroundSubtractorMOG2();
-                    first_time1 = false;
+                    first_array[0] = false;
                 }
+                
+                // args fields assigned to be passed to thread_function
                 args[count].frame = frame;
                 args[count].method = method;
                 args[count].pBackSub_eachThread = pBackSub[0];
-                pthread_create(&threadId[count], &attr, temp4, &args[count]);
+                
+                // Thread created
+                pthread_create(&threadId[count], &attr, thread_function, &args[count]);
+                
+                // wait for thread to finish
                 pthread_join(threadId[count], NULL);
+                
+                // queue density updated
                 queue_density += args[count].qd;
-                error += abs((queue_density/total) - stod(baseline_difference));
+                
+                // error calculation
+                infile >> baseline;
+                error += abs((queue_density/total) - stod(baseline));
 
             }
             else
             {
-                for (int y = 0; y < height - GRID_SIZE; y += GRID_SIZE-1) 
+                // creates x threads, x > 1
+                // splits frame in x parts to be proccesed by each thread
+                for (int y = 0; y < height - split_size; y += split_size-1) 
                 {
-                     
-                    // int k = width*y + width;
-                    
+                    // initialises bgSub object
                     if (!first_array[count])
                     {
                         pBackSub[count] = createBackgroundSubtractorMOG2();
                         first_array[count] = true;
                     }
                     
-                    if (y <= height - 2*GRID_SIZE)
+                    // split from y to y+split_size
+                    if (y <= height - 2*split_size)
                     {
-                        
-                        Rect grid_rect(0, y, width, GRID_SIZE-1);
-                        rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
-                        imshow(to_string(count), frame(grid_rect));
-                        waitKey(0);
-                        args[count].frame = frame(grid_rect);
-                        args[count].method = method;
+                        // split of width (width - 0) and height (split_size-1)
+                        Rect grid_rect(0, y, width, split_size-1);
+                        args[count].frame = frame(grid_rect); 
                     }
+                    // last split from y to height
                     else
                     {
+                        // split of width (width - 0) and height (height - y)
+                        Rect grid_rect(0, y, width, height - y);
+                        args[count].frame = frame(grid_rect);   
                         
-                        Rect grid_rect(0, y, width, height - y);   
-                        rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
-                        imshow(to_string(count), frame(grid_rect));
-                        waitKey(0);
-                        args[count].frame = frame(grid_rect);
-                        args[count].method = method;
+                        // rectangle(frame, grid_rect, Scalar(0, 255, 0), 1);
+                        // imshow(to_string(count), frame(grid_rect));
+                        // waitKey(0);
                     }
 
+                    // args fields assigned to be passed to thread_function
+                    args[count].method = method;
                     args[count].pBackSub_eachThread = pBackSub[count]; 
-                    pthread_create(&threadId[count], &attr, temp4, &args[count]);
+                    
+                    // Thread created
+                    pthread_create(&threadId[count], &attr, thread_function, &args[count]);
+                    
+                    // count updated
                     count++; 
                 }
-                infile >> baseline_difference;
+
+                // wait for all the threads to finish
                 for (int i = 0; i < count; i++)
                 {
                     pthread_join(threadId[i], NULL);
+                    
+                    // queue density updated
                     queue_density += args[i].qd;  
                 }
-                error += abs((queue_density/total) - stod(baseline_difference));
-                // cout << "QD: " << queue_density/total << " BD: " << baseline_difference << endl;
+                
+                // error calculation
+                infile >> baseline;
+                error += abs((queue_density/total) - stod(baseline));
             }
             
+            // next frame
             capture >> frame;
         }
     }
             
-        
+    // mean error 
     error = error / 5736.0; 
-    // utility = 1 / error;
-
+    
+    // file closed
     infile.close();
     return error;
 }
 
-// Function to calulate Density
-double density(string filename, int method, int x, int reso_X, int reso_Y)
+// Function to calulate queue density for method 1 and 2 
+double method_1_2(string filename, int method, int x, int reso_X, int reso_Y)
 {
     // Objects defined for background subtraction model
     Ptr<BackgroundSubtractor> pBackSub;
-    Ptr<BackgroundSubtractor> pBackSub1;
     pBackSub = createBackgroundSubtractorMOG2();
-    pBackSub1 = createBackgroundSubtractorMOG2();
 
+    // opens "Baseline.txt" having queue density values of baseline
     ifstream infile; 
     infile.open("Baseline.txt");
     
@@ -305,15 +366,14 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
     // initializations
     Mat frame, fgMask, fgMask1;
     double queue_density = 0.0;
-    double dynamic_density = 0.0;
     double total; 
-    string baseline_difference; 
+    string baseline; 
     double error = 0.0;
-    double utility = 0.0; 
 
+    // First Frame
     capture >> frame;
 
-    // computation of density for each frame
+    // computation of queue density for each frame
     while (true) 
     {
         
@@ -323,13 +383,13 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
             break;
         }  
         
-        
-
+        // homography returns frame of X*Y resolution for method 2
         if (method == 2)
         {
             // Angle correction and cropping
             frame = homography(frame, reso_X, reso_Y);
         }
+        // simple homography for method 1
         else 
         {
             // Angle correction and cropping
@@ -337,21 +397,16 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
         }
         
         
-        
-
-        // total no. of pixels in the frame
+        // total no. of pixels in the homographed frame
         total = double(frame.total());
 
-        //update the background model
+        //update the backgroundSubtraction model
         pBackSub->apply(frame, fgMask, 0);
-        // pBackSub1->apply(frame, fgMask1, -1);
 
-        // density values 
+        // queue density calculated 
         queue_density  = countNonZero(fgMask)/total; 
-        // dynamic_density = countNonZero(fgMask1)/total;
         
-        
-
+        // method 1
         if (method == 1)
         {
             // gets the next x frames
@@ -360,61 +415,77 @@ double density(string filename, int method, int x, int reso_X, int reso_Y)
                 capture >> frame;
             }  
 
+            // error calculation
             for (int i = 0; i < x; i++)
             {
-                infile >> baseline_difference;
-                error += abs(queue_density - stod(baseline_difference)); 
+                infile >> baseline;
+                error += abs(queue_density - stod(baseline)); 
             }
         
         }
 
+        // method 2
         if (method == 2)
         {
-            capture >> frame;   
-            infile >> baseline_difference;
-            error += abs(queue_density - stod(baseline_difference));
+            // next frame
+            capture >> frame;
+
+            // error calculation   
+            infile >> baseline;
+            error += abs(queue_density - stod(baseline));
         }
            
     }
     
 
+    // mean error
     error = error / 5736.0; 
-    utility = 1 / error;
-
+    
+    // file closed
     infile.close();
-    return utility;
+    return error;
 }
 
+// MAIN
 int main(int argc, char* argv[])
 {
-    
-    // if command line arguments is not passed 
+    // if command line arguments are not passed in proper format
     if (argc != 3)
     {
         cout << "Format: ./output videofilename method" << endl; 
         return -1;
     }
 
+    // filename
     string filename = argv[1];
+    
+    // method no.
     int method = stoi(argv[2]);
+    
+    // if method not in range
     if (method < 1 || method > 4)
     {
         cout << "INVALID METHOD. METHOD SHOULD BE FROM {1,2,3,4}" << endl;
         return -1;
     }
     
+    // open appropriate file where runtime and utility have to be written
     ofstream utility;
     utility.open("utility_method" + to_string(method) + ".dat");
     
+    // utility value
     double util = 0.0;
 
+    // method 1
     if (method == 1)
     {   
-        cout << "loading..." << endl;
-        for (int i = 1; i <= 20; i++)
+        cout << "Loading..." << endl;
+        
+        // running method for different values of parameter
+        for (int i = 1; i <= 10; i++)
         {
             auto begin = chrono::high_resolution_clock::now();
-            util = density(filename, method, i, 1920, 1080);
+            util = method_1_2(filename, method, i, 200, 500);
             auto finish = chrono::high_resolution_clock::now();
             if (util == -1.0)
             {
@@ -423,18 +494,21 @@ int main(int argc, char* argv[])
             auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
             utility << elapsed.count()/1000.0 << "\t" + to_string(util) << endl;
         }
-        cout << "DONE" << endl;
+        
+        cout << "Done." << endl;
     }
+    // method 2
     else if (method == 2)
     {
-        cout << "loading..." << endl;
+         cout << "Loading..." << endl;
         int ini_reso_x = 200;
         int ini_reso_y = 500;
         
-        for (int i = 0; i < 10; i++)
+        // running method for different values of parameter
+        for (int i = 0; i < 7; i++)
         {
             auto begin = chrono::high_resolution_clock::now();
-            util = density(filename, method, i, ini_reso_x, ini_reso_y);
+            util = method_1_2(filename, method, i, ini_reso_x, ini_reso_y);
             auto finish = chrono::high_resolution_clock::now();
             if (util == -1.0)
             {
@@ -443,18 +517,22 @@ int main(int argc, char* argv[])
             auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
             utility << elapsed.count()/1000.0 <<  "\t" + to_string(util) << endl;
 
-            ini_reso_x = ini_reso_x/1.5;    
-            ini_reso_y = ini_reso_y/1.5;
+            ini_reso_x = ini_reso_x/2;    
+            ini_reso_y = ini_reso_y/2;
         }
-        cout << "DONE" << endl;
+        
+        cout << "Done." << endl;
     }
+    // method 3
     else if (method == 3)
     {
-        cout << "loading..." << endl;   
-        for (int i = 18; i <= 20; i++)
+        cout << "Loading..." << endl;   
+        
+        // running method for different values of parameter
+        for (int i = 1; i <= 10; i++)
         {
             auto begin = chrono::high_resolution_clock::now();
-            util = method4(filename, method, i);
+            util = method_3_4(filename, method, i);
             auto finish = chrono::high_resolution_clock::now();
             if (util == -1.0)
             {
@@ -463,15 +541,18 @@ int main(int argc, char* argv[])
             auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
             utility << elapsed.count()/1000.0 << "\t" + to_string(util) << endl;
         }
-        cout << "DONE" << endl;
+        cout << "Done." << endl;
     }
+    // method 4
     else if (method == 4)
     {
-        cout << "loading..." << endl;   
-        for (int i = 1; i <= 20; i++)
+        cout << "Loading..." << endl;   
+        
+        // running method for different values of parameter
+        for (int i = 2; i <= 10; i++)
         {
             auto begin = chrono::high_resolution_clock::now();
-            util = method4(filename, method, i);
+            util = method_3_4(filename, method, i);
             auto finish = chrono::high_resolution_clock::now();
             if (util == -1.0)
             {
@@ -480,9 +561,11 @@ int main(int argc, char* argv[])
             auto elapsed = chrono::duration_cast<chrono::milliseconds>(finish - begin);
             utility << elapsed.count()/1000.0 << "\t" + to_string(util) << endl;
         }
-        cout << "DONE" << endl;
+        
+        cout << "Done." << endl;
     }
     
+    // file closed
     utility.close();
     
     return 0;
